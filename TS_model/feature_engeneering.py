@@ -6,7 +6,7 @@ class FeatureEngineer:
     def __init__(self, df: pd.DataFrame, date_col: str = 'date'):
         """
         Инициализация данных, содержащих как минимум следующие столбцы:
-        date_col, 'inflow', 'outflow', 'balance', 
+        date_col, 'income', 'outcome', 'balance', 
         а также любые существующие макро признаки
         """
         self.df = df.copy()
@@ -20,8 +20,8 @@ class FeatureEngineer:
         """
         for lag in lags:
             self.features[f'balance_lag{lag}'] = self.df['balance'].shift(lag)
-            self.features[f'inflow_lag{lag}'] = self.df['inflow'].shift(lag)
-            self.features[f'outflow_lag{lag}'] = self.df['outflow'].shift(lag)
+            self.features[f'income_lag{lag}'] = self.df['income'].shift(lag)
+            self.features[f'outcome_lag{lag}'] = self.df['outcome'].shift(lag)
         return self
     
     def add_rolling_features(self, windows: List[int] = [3, 7, 30]) -> 'FeatureEngineer':
@@ -31,8 +31,8 @@ class FeatureEngineer:
         for w in windows:
             # shift(1) для того чтобы текущий элемент не входил в окно
             self.features[f'balance_ma{w}'] = self.df['balance'].shift(1).rolling(window=w, min_periods=1).mean()
-            self.features[f'inflow_ma{w}'] = self.df['inflow'].shift(1).rolling(window=w, min_periods=1).mean()
-            self.features[f'outflow_ma{w}'] = self.df['outflow'].shift(1).rolling(window=w, min_periods=1).mean()
+            self.features[f'income_ma{w}'] = self.df['income'].shift(1).rolling(window=w, min_periods=1).mean()
+            self.features[f'outcome_ma{w}'] = self.df['outcome'].shift(1).rolling(window=w, min_periods=1).mean()
         return self
     
     def add_seasonal_features(self) -> 'FeatureEngineer':
@@ -73,6 +73,6 @@ class FeatureEngineer:
         """
         # Удаление строк с NaN (из-за лагов) в начале
         feature_df = self.features.copy()
-        feature_df.drpona(inplace=True)
+        feature_df.dropna(inplace=True)
 
         return feature_df
