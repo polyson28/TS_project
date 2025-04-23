@@ -1,6 +1,7 @@
 import math
 from collections import deque
 
+
 class UniversalChangePointDetector:
     """
     Universal change-point detector for non‑i.i.d. data with target false‑alarm ≤10%.
