@@ -1,7 +1,61 @@
 import numpy as np
+import pandas as pd
 from scipy.spatial import cKDTree
 from scipy.special import digamma
-from typing import Union
+import matplotlib.pyplot as plt
+from typing import Union, List
+from sklearn.linear_model import LassoCV, RidgeCV, ElasticNetCV
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.feature_selection import RFECV
+
+
+class WrapperMethod:
+    def __init__(self):
+        """Класс для реализации оберточных методов для feature selection 
+        """
+        pass
+    
+    def fit(self, features: pd.DataFrame, target: Union[pd.DataFrame, pd.Series]):
+        """фит данных 
+
+        Args:
+            features (pd.DataFrame): датасет с признаками 
+            target (Union[pd.DataFrame, pd.Series]): датасет с таргетом 
+        """
+        self.features = features
+        self.target = target 
+    
+    def implement(self, model: Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor], tscv: TimeSeriesSplit) -> List[str]:
+        """реализация отбора признаков с помощью оберточных методов 
+
+        Args:
+            model (Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor]): используемая модель 
+            tscv (TimeSeriesSplit): time series split для кросс валидации 
+
+        Raises:
+            ValueError: если метод вызван до fit()
+
+        Returns:
+            List[str]: список с важными фичами 
+        """
+        if not hasattr(self, 'features') or not hasattr(self, 'target'):
+            raise ValueError("Сначала нужно зафитить данные")
+        
+        selector = RFECV(
+            estimator=model,
+            step=1,
+            cv=tscv,
+            scoring='neg_mean_squared_error',
+            min_features_to_select=5,
+            n_jobs=-1
+        )
+
+        selector.fit(self.features, self.target)
+
+        # Вывод результатов
+        selected_features = self.features.columns[selector.support_]
+        return selected_features
 
 
 class TransferEntropyFeatureSelection:
@@ -53,19 +107,6 @@ class TransferEntropyFeatureSelection:
             border_points[i] = is_border.sum()
 
         return border_points, log_volumes
-
-    # def estimate_entropy(self, X: np.ndarray, k: int) -> float:
-    #     tree = cKDTree(X)
-    #     dists, inds = tree.query(X, k=k+1, p=np.inf)
-    #     inds = inds[:, 1:]
-    #     log_vol = np.zeros(X.shape[0])
-    #     for i in range(X.shape[0]):
-    #         diffs = np.abs(X[inds[i]] - X[i])
-    #         max_d = diffs.max(axis=0)
-    #         max_d[max_d <= 0] = np.finfo(float).eps
-    #         log_vol[i] = np.sum(np.log(2 * max_d))
-    #     H = digamma(X.shape[0]) - digamma(k) + np.mean(log_vol) + (X.shape[1] - 1) / k
-    #     return H
     
     def estimate_entropy(self, X: np.ndarray, k: int) -> float:
         tree = cKDTree(X)
@@ -170,3 +211,27 @@ class TransferEntropyFeatureSelection:
         if self.feature_importances_ is None:
             raise ValueError("Сначала нужно зафитить данные")
         return np.where(self.feature_importances_ >= threshold)[0]
+    
+    def selected_feature_names(self,
+        feature_names: List[str],
+        threshold: float=0.01
+    ) -> List[str]:
+        """
+        Имена важных признаков среди переданного списка feature_names.
+
+        Args:
+            feature_names (List[str]): список с названиями столбцов
+            threshold (float, optional): порог, начиная с которого отсеиваем признаки. Defaults to 0.01.
+
+        Returns:
+            list[str]: имена признаков, чья важность ≥ threshold.
+
+        Raises:
+            ValueError: если метод вызван до fit() или длина feature_names
+                не совпадает с числом рассчитанных importances.
+        """
+        if self.feature_importances_ is None:
+            raise ValueError("Сначала нужно зафитить данные")
+
+        idx = self.selected_features(threshold)
+        return [feature_names[i] for i in idx]
