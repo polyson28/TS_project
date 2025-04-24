@@ -33,7 +33,7 @@ class ForecastModel:
     
     def evaluate(self, x_test: np.ndarray, y_test: np.ndarray) -> tuple[float, float]:
         """
-        Вычисление MAE для проверки удовлетворения критерия заказчика
+        Вычисление MAE для проверки соответствию критерию заказчика
         x_test: тестовая выборка
         y_test: целевая переменная на тестовой выборке (если доступна)
         """
@@ -42,5 +42,5 @@ class ForecastModel:
         max_err = np.max(np.abs(y_test - preds))
         print(f'MAE = {mae:.3f}, Max Error = {max_err:.3f}')
         if max_err > 0.42:
-            print('❌❌ Внимание: прогнозы превышают порог ошибки 0.42 ❌❌❌')
+            print('❌❌ Прогнозы превшают порог ошибки 0.42 ❌❌❌')
         return mae, max_err

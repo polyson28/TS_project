@@ -18,13 +18,16 @@ class ModelSelector:
         self.best_model = None
         self.best_model_name = None
         
-    def find_best_model(self, X_train: pd.DataFrame, y_train: pd.Series, period: int = 1) -> Any:
+    def find_best_model(self, x_train: pd.DataFrame, y_train: pd.Series, period: int = 1) -> Any:
         """
         Запуск AutoML для нахождения лучшей модели. 
         Период прогноза задаем самостоятельно 
+        x_train: обучающая выборка 
+        y_train: целевая переменная
+        period: горизонт прогноза
         """
         self.automl.fit(
-            X_train=X_train, y_train=y_train,
+            X_train=x_train, y_train=y_train,
             task='ts_forecast',
             metric=self.metric,
             eval_method='holdout',
@@ -40,5 +43,6 @@ class ModelSelector:
     def predict(self, X_future: pd.DataFrame) -> Any:
         """
         При желании можно построить прогноз, но обычно мы этого не делаем
+        X_future: датасет с будущими данными 
         """
         return self.automl.predict(X_future)
