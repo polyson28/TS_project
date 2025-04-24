@@ -37,10 +37,7 @@ class TransferEntropyFeatureSelection:
         for i in range(X.shape[0]):
             nbrs   = X[indices[i]]               
             diffs  = np.abs(nbrs - X[i])          
-            # max_d  = diffs.max(axis=0)          
 
-            # # объем минимального гиперпрямоугольника
-            # log_volumes[i] = np.sum(np.log(2 * max_d))
             max_d = diffs.max(axis=0)
             max_d[max_d <= 0] = np.finfo(float).eps  
             log_volumes[i] = np.sum(np.log(2 * max_d))
@@ -54,20 +51,16 @@ class TransferEntropyFeatureSelection:
 
         return border_points, log_volumes
 
-    # def estimate_entropy(self, X: np.ndarray, k: int) -> float:
-    #     tree = cKDTree(X)
-    #     dists, inds = tree.query(X, k=k+1, p=np.inf)
-    #     inds = inds[:, 1:]
-    #     log_vol = np.zeros(X.shape[0])
-    #     for i in range(X.shape[0]):
-    #         diffs = np.abs(X[inds[i]] - X[i])
-    #         max_d = diffs.max(axis=0)
-    #         max_d[max_d <= 0] = np.finfo(float).eps
-    #         log_vol[i] = np.sum(np.log(2 * max_d))
-    #     H = digamma(X.shape[0]) - digamma(k) + np.mean(log_vol) + (X.shape[1] - 1) / k
-    #     return H
-    
     def estimate_entropy(self, X: np.ndarray, k: int) -> float:
+        """Оценка энтропии непрерывного распределения через kNN 
+
+        Args:
+            X (np.ndarray): временной ряд 
+            k (int): количество ближайших соседей 
+
+        Returns:
+            float: оценка дифференциальной энтропии H(X)
+        """
         tree = cKDTree(X)
         dists, inds = tree.query(X, k=k+1, p=np.inf)
         inds = inds[:, 1:]
