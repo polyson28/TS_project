@@ -100,6 +100,8 @@ class DefaultMethod(BaseClass):
         Returns:
             List[str]: список с важными фичами 
         """
+        if hasattr(model, 'random_state'):
+            model.random_state = 42
         model.fit(self.features, self.target)
         
         if isinstance(model, LassoCV):
@@ -134,6 +136,9 @@ class WrapperMethod(BaseClass):
         Returns:
             List[str]: список с важными фичами 
         """
+        if hasattr(model, 'random_state'):
+            model.random_state = 42
+            
         selector = RFECV(
             estimator=model,
             step=1,
@@ -234,8 +239,7 @@ class TransferEntropyFeatureSelection:
         
         border_points, log_vol = self.compute_border_points(X, inds, k)
         
-        H = np.mean(-log_vol + np.log(k) - np.log(X.shape[0]-1) 
-                    + digamma(border_points + 1))  # Добавлен член с digamma
+        H = np.mean(-log_vol + np.log(k) - np.log(X.shape[0]-1) + digamma(border_points + 1))  
         return H
     
     def estimate_transfer_entropy(self, X: np.ndarray, Y: np.ndarray, k: int, delay: int=1, embed_dim: int=1) -> float:
@@ -262,8 +266,10 @@ class TransferEntropyFeatureSelection:
         X_p = np.zeros((N, embed_dim))
         Y_p = np.zeros((N, embed_dim))
         for i in range(embed_dim):
-            start = embed_dim*delay - i*delay
-            end   = -(i*delay + 1)
+            # start = embed_dim*delay - i*delay
+            # end   = -(i*delay + 1)
+            start = embed_dim*delay - (i+1)*delay
+            end = start + (T - embed_dim*delay - 1)
             X_p[:, i] = X[start : end]
             Y_p[:, i] = Y[start : end]
 
