@@ -48,13 +48,14 @@ class BaseClass:
         if not hasattr(self, 'selected_features'):
             raise ValueError('Сначала нужно сделать inplement для расчета важности признаков')
         
-        self.binary_matrix = [1 if self.features.columns[i] in self.selected_features else 0 for i in range(len(self.features.columns))]
+        if not hasattr(self, 'features_names'):
+            self.features_names = self.features.columns
+        
+        return [1 if self.features_names[i] in self.selected_features else 0 for i in range(len(self.features_names))]
     
     def vizualize(self, title: Union[str, None]=None):
         if not hasattr(self, 'imp'):
             raise ValueError('Сначала нужно сделать fit и implement перед построением графика')
-        
-        # self.imp = sorted(self.imp, reverse=True)
         
         if not hasattr(self, 'features_names'):
             self.features_names = self.features.columns
@@ -201,11 +202,9 @@ class TransferEntropyFeatureSelection:
 
         for i in range(X.shape[0]):
             nbrs   = X[indices[i]]               
-            diffs  = np.abs(nbrs - X[i])          
-            # max_d  = diffs.max(axis=0)          
+            diffs  = np.abs(nbrs - X[i])                  
 
             # # объем минимального гиперпрямоугольника
-            # log_volumes[i] = np.sum(np.log(2 * max_d))
             max_d = diffs.max(axis=0)
             max_d[max_d <= 0] = np.finfo(float).eps  
             log_volumes[i] = np.sum(np.log(2 * max_d))
@@ -347,3 +346,50 @@ class TransferEntropyFeatureSelection:
         
         idx = self.selected_features(threshold)
         return [feature_names[i] for i in idx]
+    
+class StabilityAnalysis:
+    def __init__(self):
+        pass
+    
+    def fit(self, features: pd.DataFrame, target: Union[pd.DataFrame, pd.Series]):
+        self.features = features
+        self.target = target
+        
+    def collect_binary(self, n_splits: int, method: Literal['default', 'wrapper', 'filter'], **method_params):
+        tscv = TimeSeriesSplit(n_splits=n_splits)
+        binary = []
+        
+        # Проходим по каждому временному разбиению
+        for i, (train_idx, test_idx) in enumerate(tscv.split(self.features)):
+            features_split = self.features.iloc[train_idx]
+            target_split = self.target.iloc[train_idx]
+            
+            if method == 'default':
+                method = DefaultMethod()
+            elif method == 'wrapper': 
+                method = WrapperMethod()
+            elif method == 'filter':
+                method = FilterMethod()
+                
+            method.fit(features_split, target_split)
+            selected_features = method.implement(**method_params)
+            
+            binary_str = method.get_binary()
+            binary.append(binary_str)
+            
+        self.binary = np.array(binary) 
+            
+    def implement(self):
+        if not hasattr(self, 'binary'):
+            raise ValueError('Сначала нужно рассчитать бинарную матрицу с отобранными признаками на каждом фолде collect_binary()')
+        
+        pf_hat = np.mean(self.binary, axis=0)
+        kbar = np.sum(pf_hat)
+        
+        N_features, n_splits = self.binary.shape
+        
+        return (
+            1 - (N_features / (N_features - 1)) 
+            * np.mean(np.multiply(pf_hat, 1-pf_hat))
+            / ((kbar / n_splits) * (1 - kbar / n_splits))
+        )
