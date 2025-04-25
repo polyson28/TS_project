@@ -1,6 +1,7 @@
 from flaml import AutoML
 import pandas as pd
 from typing import Any
+import joblib
 
 
 class ModelSelector:
@@ -38,11 +39,8 @@ class ModelSelector:
         self.best_model = self.automl.model.estimator
         self.best_model_name = self.automl.best_estimator
         print(f'AutoML selected model: {self.best_model_name}')
-        return self.best_model
+        return self.automl
     
-    def predict(self, X_future: pd.DataFrame) -> Any:
-        """
-        При желании можно построить прогноз, но обычно мы этого не делаем
-        X_future: датасет с будущими данными 
-        """
-        return self.automl.predict(X_future)
+    def save(self, path: str = 'model.pkl'):
+        joblib.dump(self.automl, path)
+        print(f'Модель сохранена в {path}')
