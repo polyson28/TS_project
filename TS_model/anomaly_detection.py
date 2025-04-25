@@ -1,5 +1,8 @@
-import math
+import numpy as np
+import pandas as pd
+from statsmodels.tsa.stattools import acf
 from collections import deque
+import math
 
 class UniversalChangePointDetector:
     """
@@ -10,7 +13,7 @@ class UniversalChangePointDetector:
     def __init__(self,
                  threshold=2.0, 
                  direction="both",
-                 season_length=24,
+                 season_length=1,
                  alpha=0.2, beta=0.1, gamma=0.05,
                  k_mean=0.5, k_var=0.5,
                  max_buffer=200,
@@ -47,7 +50,7 @@ class UniversalChangePointDetector:
         self.warmup = warmup
 
     @classmethod
-    def calibrate(cls, historical_series, **kwargs):
+    def calibrate_thr(cls, historical_series, **kwargs):
         """
         Calibrate detection threshold on historical data to fix
         false‑alarm rate at ≈10%. Returns a configured detector.
@@ -156,3 +159,35 @@ class UniversalChangePointDetector:
             "sr": self.sr,
             "threshold": self.threshold
         }
+
+    @staticmethod
+    def detect_season_length(series, max_lag=None, min_lag=3, min_acf=0.1):
+        x = np.asarray(series)
+        N = len(x)
+        win = max(3, N // 10)
+        trend = pd.Series(x).rolling(win, center=True, min_periods=1).mean().to_numpy()
+        resid = x - trend
+        L = max_lag or (N // 2)
+        acf_vals = acf(resid, nlags=L, fft=True)
+        for lag in range(min_lag, len(acf_vals)-1):
+            if (acf_vals[lag] > acf_vals[lag-1] and
+                acf_vals[lag] > acf_vals[lag+1] and
+                acf_vals[lag] > min_acf):
+                return lag
+        return 1
+
+    @classmethod
+    def calibrate_seas(cls, historical_series, season_length=None, **kwargs):
+        # If user hasn’t supplied a season_length, detect it automatically
+        if season_length is None:
+            season_length = cls.detect_season_length(historical_series)
+        # Now proceed with calibration using the detected period
+        det = cls(season_length=season_length, **kwargs)
+        scores = []
+        for t, x in enumerate(historical_series):
+            score = det.update(x, calibrate=True)
+            if t >= det.warmup:
+                scores.append(score)
+        det.threshold = sorted(scores)[int(0.9 * len(scores))]
+        det.reset_state()
+        return det
