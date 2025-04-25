@@ -3,17 +3,15 @@ import pandas as pd
 from scipy.spatial import cKDTree
 from scipy.special import digamma
 import matplotlib.pyplot as plt
-from typing import Union, List
+from typing import Union, List, Literal
 from sklearn.linear_model import LassoCV, RidgeCV, ElasticNetCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.feature_selection import RFECV
 
 
-class WrapperMethod:
+class BaseClass:
     def __init__(self):
-        """Класс для реализации оберточных методов для feature selection 
-        """
         pass
     
     def fit(self, features: pd.DataFrame, target: Union[pd.DataFrame, pd.Series]):
@@ -26,22 +24,115 @@ class WrapperMethod:
         self.features = features
         self.target = target 
     
-    def implement(self, model: Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor], tscv: TimeSeriesSplit) -> List[str]:
+    def implement(
+        self, 
+        **additional_params
+    ) -> List[str]:
+        """_summary_
+
+        Args:
+            model (Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor]): используемая модель
+
+        Raises:
+            ValueError: если метод вызван до fit()
+            NotImplementedError: если метод не реализован
+
+        Returns:
+            List[str]: список с важными фичами 
+        """
+        if not hasattr(self, 'features') or not hasattr(self, 'target'):
+            raise ValueError('Сначала нужно зафитить данные')
+        raise NotImplementedError('Нужно реализовать метод implement')
+    
+    def get_binary(self): 
+        if not hasattr(self, 'selected_features'):
+            raise ValueError('Сначала нужно сделать inplement для расчета важности признаков')
+        
+        self.binary_matrix = [1 if self.features.columns[i] in self.selected_features else 0 for i in range(len(self.features.columns))]
+    
+    def vizualize(self, title: Union[str, None]=None):
+        if not hasattr(self, 'imp'):
+            raise ValueError('Сначала нужно сделать fit и implement перед построением графика')
+        
+        # self.imp = sorted(self.imp, reverse=True)
+        
+        if not hasattr(self, 'features_names'):
+            self.features_names = self.features.columns
+            
+        # Получаем индексы для сортировки self.imp по убыванию
+        sorted_indices = sorted(range(len(self.imp)), key=lambda i: self.imp[i], reverse=True)
+
+        # Сортируем self.imp и self.features.columns согласно индексам
+        sorted_imp = [self.imp[i] for i in sorted_indices]
+        sorted_cols = [self.features_names[i] for i in sorted_indices]
+        
+        plt.figure(figsize=(12, 6))
+        plt.barh(sorted_cols, sorted_imp)
+        plt.xlabel('Оценка важности признака')
+        
+        if not hasattr(self, 'model_name'):
+            plt.title(title)
+        else: 
+            plt.title(f'Важность признаков по методу {self.model_name}')
+        
+        plt.axvline(0, color='black', linestyle='--')
+        plt.show()
+
+
+class DefaultMethod(BaseClass): 
+    def __init__(self):
+        """Класс для реализации встроенных методов для feature selection 
+        """
+        pass
+    
+    def implement(
+        self, 
+        model: Union[LassoCV, RandomForestRegressor], 
+        threshold: float=0.01
+    ) -> List[str]:
+        """реализация отбора признаков с помощью встроенных методов
+
+        Args:
+            model (Union[LassoCV, RandomForestRegressor]): используемая модель 
+            threshold (float, optional): порог для отбора признаков (нужно указать если model = RandomForest). Defaults to 0.01.
+
+        Returns:
+            List[str]: список с важными фичами 
+        """
+        model.fit(self.features, self.target)
+        
+        if isinstance(model, LassoCV):
+            self.imp = model.coef_
+            self.selected_features = self.features.columns[self.imp != 0]
+            self.model_name = 'Lasso'
+        elif isinstance(model, RandomForestRegressor):
+            self.imp = model.feature_importances_
+            self.selected_features = self.features.columns[self.imp > threshold]
+            self.model_name = 'Random Forest'
+            
+        return self.selected_features
+    
+
+class WrapperMethod(BaseClass):
+    def __init__(self):
+        """Класс для реализации оберточных методов для feature selection 
+        """
+        pass
+    
+    def implement(
+        self, 
+        model: Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor], 
+        tscv: TimeSeriesSplit
+    ) -> List[str]:
         """реализация отбора признаков с помощью оберточных методов 
 
         Args:
             model (Union[LassoCV, RidgeCV, ElasticNetCV, RandomForestRegressor]): используемая модель 
             tscv (TimeSeriesSplit): time series split для кросс валидации 
 
-        Raises:
-            ValueError: если метод вызван до fit()
-
         Returns:
             List[str]: список с важными фичами 
         """
-        if not hasattr(self, 'features') or not hasattr(self, 'target'):
-            raise ValueError("Сначала нужно зафитить данные")
-        
         selector = RFECV(
             estimator=model,
             step=1,
@@ -52,10 +143,30 @@ class WrapperMethod:
         )
 
         selector.fit(self.features, self.target)
+        
+        self.imp = selector.ranking_
 
-        # Вывод результатов
-        selected_features = self.features.columns[selector.support_]
-        return selected_features
+        self.selected_features = self.features.columns[selector.support_]
+        return self.selected_features
+    
+    
+class FilterMethod(BaseClass):
+    def __init__(self):
+        pass
+    
+    def fit(self, features: pd.DataFrame, target: Union[pd.DataFrame, pd.Series]):
+        self.features_names = features.columns
+        self.features = np.array(features)
+        self.target = np.array(target)
+    
+    def implement(self, k: int, delay: int=1, embed_dim: int=1, threshold: float=0.01): 
+        transfer_entropy = TransferEntropyFeatureSelection(k=k, delay=delay, embed_dim=embed_dim)
+        transfer_entropy.fit(self.features, self.target)
+        
+        self.imp = transfer_entropy.feature_importances_
+        self.selected_features = transfer_entropy.selected_feature_names(self.features_names, threshold)
+        
+        return self.selected_features
 
 
 class TransferEntropyFeatureSelection:
@@ -212,12 +323,13 @@ class TransferEntropyFeatureSelection:
             raise ValueError("Сначала нужно зафитить данные")
         return np.where(self.feature_importances_ >= threshold)[0]
     
-    def selected_feature_names(self,
+    def selected_feature_names(
+        self,
         feature_names: List[str],
-        threshold: float=0.01
+        threshold: float=0.01, 
     ) -> List[str]:
         """
-        Имена важных признаков среди переданного списка feature_names.
+        Имена важных признаков среди переданного списка feature_names
 
         Args:
             feature_names (List[str]): список с названиями столбцов
@@ -232,6 +344,6 @@ class TransferEntropyFeatureSelection:
         """
         if self.feature_importances_ is None:
             raise ValueError("Сначала нужно зафитить данные")
-
+        
         idx = self.selected_features(threshold)
         return [feature_names[i] for i in idx]
