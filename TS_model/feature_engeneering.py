@@ -11,7 +11,7 @@ class FeatureEngineer:
         """
         self.df = df.copy()
         self.date_col = date_col
-        self.df.set_index(date_col, inplace=True)
+        self.df = self.df.set_index(date_col).asfreq('D')
         self.features = pd.DataFrame(index=self.df.index)
     
     def add_lag_features(self, lags: List[int] = [1, 2, 7]) -> 'FeatureEngineer':
@@ -67,12 +67,14 @@ class FeatureEngineer:
         self.features.fillna(method='ffill', inplace=True)
         return self
     
-    def get_feature_df(self) -> pd.DataFrame:
+    def get_feature_df(self) -> tuple[pd.DataFrame, pd.Series]:
         """
         Возврат конечного датасета признаков 
         """
         # Удаление строк с NaN (из-за лагов) в начале
         feature_df = self.features.copy()
         feature_df.dropna(inplace=True)
+        valid_indices = feature_df.index
+        balance_series = self.df.loc[valid_indices, 'balance']
 
-        return feature_df
+        return feature_df, balance_series

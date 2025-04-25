@@ -217,8 +217,17 @@ class TransferEntropyFeatureSelection:
             border_points[i] = is_border.sum()
 
         return border_points, log_volumes
-    
+
     def estimate_entropy(self, X: np.ndarray, k: int) -> float:
+        """Оценка энтропии непрерывного распределения через kNN 
+
+        Args:
+            X (np.ndarray): временной ряд 
+            k (int): количество ближайших соседей 
+
+        Returns:
+            float: оценка дифференциальной энтропии H(X)
+        """
         tree = cKDTree(X)
         dists, inds = tree.query(X, k=k+1, p=np.inf)
         inds = inds[:, 1:]
