@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import List, Union
+from sklearn.preprocessing import StandardScaler
 
 class FeatureEngineer:
     def __init__(self, df: pd.DataFrame, date_col: str = 'date'):
@@ -62,7 +63,21 @@ class FeatureEngineer:
         """
         Добавление макро переменных (уже выровненных по дате)
         """
-        self.features = self.features.join(macro_df, how='left')
+        macro_df_adj = macro_df.copy()
+        numeric_cols = [
+            col for col in macro_df_adj if 
+            pd.api.types.is_numeric_dtype(macro_df_adj[col]) and
+            len(macro_df_adj[col].unique()) > 2 # не стандартизируем бинарные 
+        ]
+        if numeric_cols:
+            scaler = StandardScaler()
+            macro_df_adj[numeric_cols] = scaler.fit_transform(macro_df_adj[numeric_cols])
+            
+        overlap = set(macro_df_adj.columns).intersection(self.features.columns)
+        if overlap:
+            self.features = self.features.drop(columns=overlap)
+            
+        self.features = self.features.join(macro_df_adj, how='left')
         # forward-fill для заполнения последнего известного значения, если данные не ежедневные
         self.features.fillna(method='ffill', inplace=True)
         return self
@@ -76,5 +91,8 @@ class FeatureEngineer:
         feature_df.dropna(inplace=True)
         valid_indices = feature_df.index
         balance_series = self.df.loc[valid_indices, 'balance']
+        balance_series.dropna(inplace=True)
+        valid_balance_indices = balance_series.index
+        feature_df = feature_df.loc[valid_balance_indices]
 
         return feature_df, balance_series
