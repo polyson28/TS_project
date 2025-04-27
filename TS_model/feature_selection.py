@@ -67,7 +67,7 @@ class BaseClass:
         sorted_imp = [self.imp[i] for i in sorted_indices]
         sorted_cols = [self.features_names[i] for i in sorted_indices]
         
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(12, 8))
         plt.barh(sorted_cols, sorted_imp)
         plt.xlabel('Оценка важности признака')
         
@@ -165,7 +165,7 @@ class FilterMethod(BaseClass):
         self.features = np.array(features)
         self.target = np.array(target)
     
-    def implement(self, k: int, delay: int=1, embed_dim: int=1, threshold: float=0.01): 
+    def implement(self, k: int, delay: int=1, embed_dim: int=3, threshold: float=0.01): 
         transfer_entropy = TransferEntropyFeatureSelection(k=k, delay=delay, embed_dim=embed_dim)
         transfer_entropy.fit(self.features, self.target)
         
@@ -176,7 +176,7 @@ class FilterMethod(BaseClass):
 
 
 class TransferEntropyFeatureSelection:
-    def __init__(self, k: int, delay: int=1, embed_dim: int=1):
+    def __init__(self, k: int, delay: int=1, embed_dim: int=3):
         """Класс для проведения feature selecton с помощью трансфертной энтропии 
         
         Args:
@@ -242,7 +242,7 @@ class TransferEntropyFeatureSelection:
         H = np.mean(-log_vol + np.log(k) - np.log(X.shape[0]-1) + digamma(border_points + 1))  
         return H
     
-    def estimate_transfer_entropy(self, X: np.ndarray, Y: np.ndarray, k: int, delay: int=1, embed_dim: int=1) -> float:
+    def estimate_transfer_entropy(self, X: np.ndarray, Y: np.ndarray, k: int, delay: int=1, embed_dim: int=3) -> float:
         """Оценка трансфертной энтропии от Y к X 
 
         Args:
