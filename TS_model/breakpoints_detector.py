@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 def normal_likelihood(value, mean_0, mean_1, std):
-    """Логарифм отношения правдоподобий нормальных плотностей."""
+    """
+    Логарифм отношения правдоподобий нормальных плотностей
+    """
     return np.log(norm.pdf(value, mean_0, std) / norm.pdf(value, mean_1, std))
 
 class ChangeFinder:
@@ -146,3 +148,12 @@ class ChangeFinder:
         ax.legend(handles=legend_elements, loc='best')
         plt.title(f'Разладка на исторических значениях сальдо, метод {method}')
         plt.show()
+
+    @staticmethod
+    def detect_anomaly_real_time(detector, new_value):
+        """
+        брабатывает новое значение через детектор и возвращает True, 
+        если зафиксирована аномалия (state == 1), иначе False
+        """
+        detector.feed(new_value)
+        return detector.states[-1] == 1
